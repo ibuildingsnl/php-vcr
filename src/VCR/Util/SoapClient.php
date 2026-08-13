@@ -37,19 +37,19 @@ class SoapClient extends \SoapClient
      *
      * Requests will be intercepted if the library hook is enabled.
      */
-    public function __doRequest(string $request, string $location, string $action, int $version, bool $one_way = false): ?string
+    public function __doRequest(string $request, string $location, string $action, int $version, bool $oneWay = false, ?string $uriParserClass = null): ?string
     {
         $this->request = $request;
 
         $soapHook = $this->getLibraryHook();
 
         if ($soapHook->isEnabled()) {
-            $this->response = $soapHook->doRequest($request, $location, $action, $version, $one_way, $this->options);
+            $this->response = $soapHook->doRequest($request, $location, $action, $version, $oneWay, $this->options);
         } else {
-            $this->response = $this->realDoRequest($request, $location, $action, $version, $one_way);
+            $this->response = $this->realDoRequest($request, $location, $action, $version, $oneWay, $uriParserClass);
         }
 
-        return $one_way ? null : $this->response;
+        return $oneWay ? null : $this->response;
     }
 
     public function __getLastRequest(): ?string
@@ -67,9 +67,16 @@ class SoapClient extends \SoapClient
         $this->soapHook = $hook;
     }
 
-    protected function realDoRequest(string $request, string $location, string $action, int $version, bool $one_way = false): string
+    protected function realDoRequest(string $request, string $location, string $action, int $version, bool $oneWay = false, ?string $uriParserClass = null): string
     {
-        return parent::__doRequest($request, $location, $action, $version, $one_way);
+        // PHP 8.5 added the $uriParserClass parameter to SoapClient::__doRequest().
+        // Only forward it when it is actually set, so this keeps working on PHP < 8.5
+        // where the parent method does not accept a sixth argument.
+        if (null !== $uriParserClass) {
+            return parent::__doRequest($request, $location, $action, $version, $oneWay, $uriParserClass);
+        }
+
+        return parent::__doRequest($request, $location, $action, $version, $oneWay);
     }
 
     protected function getLibraryHook(): SoapHook
