@@ -341,6 +341,53 @@ final class CurlHookTest extends TestCase
         $this->assertFalse($afterLastInfo, 'Multi info called the last time should return false.');
     }
 
+    public function testShouldInterceptMultiCallWhenHandleIdIsRecycled(): void
+    {
+        $callCount = 0;
+        $this->curlHook->enable(
+            function () use (&$callCount) {
+                ++$callCount;
+
+                return new Response('200');
+            }
+        );
+
+        // Run a request and let its handle be freed, so PHP is free to hand the
+        // very same object id out again to the next curl_init().
+        $firstHandle = curl_init('http://example.com');
+        Assertion::notSame($firstHandle, false);
+        $firstId = (int) $firstHandle;
+        curl_exec($firstHandle);
+        unset($firstHandle);
+
+        $secondHandle = curl_init('http://example.com');
+        Assertion::notSame($secondHandle, false);
+        $this->assertSame(
+            $firstId,
+            (int) $secondHandle,
+            'This test is only meaningful when PHP recycles the handle id.'
+        );
+
+        $curlMultiHandle = curl_multi_init();
+        Assertion::notSame($curlMultiHandle, false);
+        curl_multi_add_handle($curlMultiHandle, $secondHandle);
+
+        $stillRunning = null;
+        curl_multi_exec($curlMultiHandle, $stillRunning);
+        $info = curl_multi_info_read($curlMultiHandle);
+
+        curl_multi_remove_handle($curlMultiHandle, $secondHandle);
+        curl_multi_close($curlMultiHandle);
+        $this->curlHook->disable();
+
+        $this->assertSame(2, $callCount, 'The recycled handle should not reuse the previous response.');
+        $this->assertEquals(
+            ['msg' => 1, 'result' => 0, 'handle' => $secondHandle],
+            $info,
+            'curl_multi_info_read should report the recycled handle as completed.'
+        );
+    }
+
     /**
      * @doesNotPerformAssertions
      */

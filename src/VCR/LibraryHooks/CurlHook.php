@@ -141,6 +141,9 @@ class CurlHook implements LibraryHook
         if (false !== $curlHandle) {
             self::$requests[(int) $curlHandle] = new Request('GET', $url);
             self::$curlOptions[(int) $curlHandle] = [];
+            // PHP reuses the object id of a closed handle, so a fresh handle may
+            // otherwise inherit the response recorded for its predecessor.
+            unset(self::$responses[(int) $curlHandle], self::$multiReturnValues[(int) $curlHandle]);
         }
 
         return $curlHandle;
@@ -154,7 +157,7 @@ class CurlHook implements LibraryHook
         curl_reset($curlHandle);
         self::$requests[(int) $curlHandle] = new Request('GET', null);
         self::$curlOptions[(int) $curlHandle] = [];
-        unset(self::$responses[(int) $curlHandle]);
+        unset(self::$responses[(int) $curlHandle], self::$multiReturnValues[(int) $curlHandle]);
     }
 
     /**
