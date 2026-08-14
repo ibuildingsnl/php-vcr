@@ -1,26 +1,36 @@
 <?php
 
+declare(strict_types=1);
+
 namespace VCR\CodeTransform;
+
+use VCR\Util\Assertion;
 
 class SoapCodeTransform extends AbstractCodeTransform
 {
-    const NAME = 'vcr_soap';
-
-    private static $replacements = array(
-        'new \VCR\Util\SoapClient(',
-        'extends \VCR\Util\SoapClient',
-    );
-
-    private static $patterns = array(
-        '@new\s+\\\?SoapClient\W*\(@i',
-        '@extends\s+\\\?SoapClient@i',
-    );
+    public const NAME = 'vcr_soap';
 
     /**
-     * @inheritdoc
+     * @var string[]
      */
-    protected function transformCode($code)
+    private static $replacements = [
+        'new \VCR\Util\SoapClient(',
+        'extends \VCR\Util\SoapClient',
+    ];
+
+    /**
+     * @var string[]
+     */
+    private static $patterns = [
+        '@new\s+\\\?SoapClient\W*\(@i',
+        '@extends\s+\\\?SoapClient\b@i',
+    ];
+
+    protected function transformCode(string $code): string
     {
-        return preg_replace(self::$patterns, self::$replacements, $code);
+        $transformedCode = preg_replace(self::$patterns, self::$replacements, $code);
+        Assertion::string($transformedCode);
+
+        return $transformedCode;
     }
 }

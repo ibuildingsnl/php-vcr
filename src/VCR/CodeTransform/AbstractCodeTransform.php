@@ -1,35 +1,32 @@
 <?php
 
+declare(strict_types=1);
+
 namespace VCR\CodeTransform;
+
+use VCR\Util\Assertion;
 
 /**
  * A stream wrapper filter to transform code.
- *
- * @package VCR\CodeTransform
  */
-abstract class AbstractCodeTransform extends \PHP_User_Filter
+abstract class AbstractCodeTransform extends \php_user_filter
 {
-    const NAME = 'vcr_abstract_filter';
+    public const NAME = 'vcr_abstract_filter';
 
-    /**
-     * Flag to signalize the current filter is registered.
-     *
-     * @var bool
-     */
-    protected $isRegistered = false;
+    private string $data = '';
 
     /**
      * Attaches the current filter to a stream.
-     *
-     * @return bool true on success or false on failure.
      */
-    public function register()
+    public function register(): void
     {
-        if (!$this->isRegistered) {
-            $this->isRegistered = stream_filter_register(static::NAME, get_called_class());
+        if (!\in_array(static::NAME, stream_get_filters(), true)) {
+            $isRegistered = stream_filter_register(static::NAME, static::class);
+            Assertion::true(
+                $isRegistered,
+                \sprintf('Failed registering stream filter "%s" on stream "%s"', static::class, static::NAME)
+            );
         }
-
-        return $this->isRegistered;
     }
 
     /**
@@ -38,29 +35,31 @@ abstract class AbstractCodeTransform extends \PHP_User_Filter
      * @param resource $in
      * @param resource $out
      * @param int      $consumed
-     * @param bool     $closing
      *
      * @return int PSFS_PASS_ON
      *
-     * @link http://www.php.net/manual/en/php-user-filter.filter.php
+     * @see http://www.php.net/manual/en/php-user-filter.filter.php
      */
-    public function filter($in, $out, &$consumed, $closing)
+    public function filter($in, $out, &$consumed, bool $closing): int
     {
-        while ($bucket = stream_bucket_make_writeable($in)) {
-            $bucket->data = $this->transformCode($bucket->data);
-            $consumed += $bucket->datalen;
-            stream_bucket_append($out, $bucket);
+        while ($buffer = stream_bucket_make_writeable($in)) {
+            $this->data .= $buffer->data;
+            $consumed += $buffer->datalen;
         }
 
-        return PSFS_PASS_ON;
+        if (!$closing) {
+            return \PSFS_FEED_ME;
+        }
+
+        $bucket = stream_bucket_new($this->stream, $this->transformCode($this->data));
+        $this->data = '';
+        stream_bucket_append($out, $bucket);
+
+        return \PSFS_PASS_ON;
     }
 
     /**
      * Transcodes the provided data to whatever.
-     *
-     * @param string $code
-     *
-     * @return string
      */
-    abstract protected function transformCode($code);
+    abstract protected function transformCode(string $code): string;
 }

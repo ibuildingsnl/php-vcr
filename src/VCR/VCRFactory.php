@@ -1,32 +1,32 @@
 <?php
 
+declare(strict_types=1);
+
 namespace VCR;
+
+use Assert\Assertion;
+use VCR\LibraryHooks\CurlHook;
+use VCR\LibraryHooks\SoapHook;
+use VCR\Storage\Storage;
+use VCR\Util\StreamProcessor;
 
 class VCRFactory
 {
-    /**
-     * @var Configuration
-     **/
-    protected $config;
-
-    protected $mapping = array();
-
-    protected static $instance;
+    protected Configuration $config;
 
     /**
-     * Creates a new VCRFactory instance.
-     *
-     * @param Configuration $config
+     * @var array<string, object>
      */
-    protected function __construct($config = null)
+    protected array $mapping = [];
+
+    protected static ?self $instance = null;
+
+    protected function __construct(?Configuration $config = null)
     {
         $this->config = $config ?: $this->getOrCreate('VCR\Configuration');
     }
 
-    /**
-     * @return Videorecorder
-     */
-    protected function createVCRVideorecorder()
+    protected function createVCRVideorecorder(): Videorecorder
     {
         return new Videorecorder(
             $this->config,
@@ -35,48 +35,45 @@ class VCRFactory
         );
     }
 
-    /**
-     * Provides an instance of the StreamProcessor.
-     *
-     * @return \VCR\Util\StreamProcessor
-     */
-    protected function createVCRUtilStreamProcessor()
+    protected function createVCRUtilStreamProcessor(): StreamProcessor
     {
-        return new Util\StreamProcessor($this->config);
+        return new StreamProcessor($this->config);
     }
 
-    protected function createStorage($cassetteName)
+    /** @return Storage<array> */
+    protected function createStorage(string $cassetteName): Storage
     {
         $dsn = $this->config->getCassettePath();
-        $class = $this->config->getStorage();
+        $className = $this->config->getStorage();
+        Assertion::subclassOf(
+            $className,
+            Storage::class,
+            \sprintf('Storage class "%s" is not a subclass of "%s".', $className, Storage::class)
+        );
 
-        return new $class($dsn, $cassetteName);
+        /** @var Storage $storage */
+        $storage = new $className($dsn, $cassetteName);
+
+        return $storage;
     }
 
-    protected function createVCRLibraryHooksSoapHook()
+    protected function createVCRLibraryHooksSoapHook(): SoapHook
     {
-        return new LibraryHooks\SoapHook(
+        return new SoapHook(
             $this->getOrCreate('VCR\CodeTransform\SoapCodeTransform'),
             $this->getOrCreate('VCR\Util\StreamProcessor')
         );
     }
 
-    protected function createVCRLibraryHooksCurlHook()
+    protected function createVCRLibraryHooksCurlHook(): CurlHook
     {
-        return new LibraryHooks\CurlHook(
+        return new CurlHook(
             $this->getOrCreate('VCR\CodeTransform\CurlCodeTransform'),
             $this->getOrCreate('VCR\Util\StreamProcessor')
         );
     }
 
-    /**
-     * Returns the same VCRFactory instance on ever call (singleton).
-     *
-     * @param  Configuration $config (Optional) configuration.
-     *
-     * @return VCRFactory
-     */
-    public static function getInstance(Configuration $config = null)
+    public static function getInstance(?Configuration $config = null): self
     {
         if (!self::$instance) {
             self::$instance = new self($config);
@@ -88,12 +85,12 @@ class VCRFactory
     /**
      * Returns an instance for specified class name and parameters.
      *
-     * @param string $className Class name to get a instance for.
-     * @param array $params Constructor arguments for this class.
+     * @param string  $className class name to get a instance for
+     * @param mixed[] $params    constructor arguments for this class
      *
-     * @return mixed An instance for specified class name and parameters.
+     * @return mixed an instance for specified class name and parameters
      */
-    public static function get($className, $params = array())
+    public static function get(string $className, array $params = []): mixed
     {
         return self::getInstance()->getOrCreate($className, $params);
     }
@@ -101,42 +98,36 @@ class VCRFactory
     /**
      * Returns an instance for specified classname and parameters.
      *
-     * @param string $className Class name to get a instance for.
-     * @param array $params Constructor arguments for this class.
-     *
-     * @return mixed
+     * @param string  $className class name to get a instance for
+     * @param mixed[] $params    constructor arguments for this class
      */
-    public function getOrCreate($className, $params = array())
+    public function getOrCreate(string $className, array $params = []): mixed
     {
-        $key = $className . join('-', $params);
+        $key = $className.implode('-', $params);
 
         if (isset($this->mapping[$key])) {
             return $this->mapping[$key];
         }
 
-        if (method_exists($this, $this->getMethodName($className))) {
-            $callback = array($this, $this->getMethodName($className));
-            $instance =  call_user_func_array($callback, $params);
+        $callable = [$this, $this->getMethodName($className)];
+
+        if (\is_callable($callable)) {
+            $instance = \call_user_func_array($callable, $params);
         } else {
-            $instance = new $className;
+            $instance = new $className();
         }
 
         return $this->mapping[$key] = $instance;
     }
 
     /**
-     *
-     * Example:
+     * Example:.
      *
      *   ClassName: \Tux\Foo\Linus
      *   Returns: createTuxFooLinus
-     *
-     * @param string $className
-     *
-     * @return string
      */
-    protected function getMethodName($className)
+    protected function getMethodName(string $className): string
     {
-        return 'create' . str_replace('\\', '', $className);
+        return 'create'.str_replace('\\', '', $className);
     }
 }

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace VCR\Util;
 
 use VCR\Request;
@@ -13,26 +15,34 @@ class HttpClient
     /**
      * Returns a response for specified HTTP request.
      *
-     * @param Request $request HTTP Request to send.
-     *
-     * @return Response Response for specified request.
+     * @throws CurlException In case of cURL error
      */
-    public function send(Request $request)
+    public function send(Request $request): Response
     {
         $ch = curl_init($request->getUrl());
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $request->getMethod());
-        curl_setopt($ch, CURLOPT_HTTPHEADER, HttpUtil::formatHeadersForCurl($request->getHeaders()));
-        if (!is_null($request->getBody())) {
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $request->getBody());
+
+        if ($ch === false) {
+            Assertion::isResource($ch, "Could not init curl with URL '{$request->getUrl()}'");
+        }
+
+        curl_setopt($ch, \CURLOPT_CUSTOMREQUEST, $request->getMethod());
+        curl_setopt($ch, \CURLOPT_HTTPHEADER, HttpUtil::formatHeadersForCurl($request->getHeaders()));
+        if (null !== $request->getBody()) {
+            curl_setopt($ch, \CURLOPT_POSTFIELDS, $request->getBody());
         }
 
         curl_setopt_array($ch, $request->getCurlOptions());
 
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_FAILONERROR, false);
-        curl_setopt($ch, CURLOPT_HEADER, true);
+        curl_setopt($ch, \CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, \CURLOPT_FAILONERROR, false);
+        curl_setopt($ch, \CURLOPT_HEADER, true);
 
-        list($status, $headers, $body) = HttpUtil::parseResponse(curl_exec($ch));
+        /** @var string|false $result */
+        $result = curl_exec($ch);
+        if (false === $result) {
+            throw CurlException::create($ch);
+        }
+        [$status, $headers, $body] = HttpUtil::parseResponse($result);
 
         return new Response(
             HttpUtil::parseStatus($status),

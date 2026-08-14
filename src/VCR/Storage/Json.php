@@ -1,8 +1,8 @@
 <?php
 
-namespace VCR\Storage;
+declare(strict_types=1);
 
-use VCR\Util\Assertion;
+namespace VCR\Storage;
 
 /**
  * Json based storage for records.
@@ -12,30 +12,22 @@ use VCR\Util\Assertion;
  */
 class Json extends AbstractStorage
 {
-    /**
-     * @inheritDoc
-     */
-    public function storeRecording(array $recording)
+    public function storeRecording(array $recording): void
     {
-        fseek($this->handle, -1, SEEK_END);
+        fseek($this->handle, -1, \SEEK_END);
         if (ftell($this->handle) > 2) {
             fwrite($this->handle, ',');
         }
-        if (defined('JSON_PRETTY_PRINT')) {
-            $json = json_encode($recording, JSON_PRETTY_PRINT);
+        if (\defined('JSON_PRETTY_PRINT')) {
+            $json = json_encode($recording, \JSON_PRETTY_PRINT);
         } else {
             $json = json_encode($recording);
         }
-        fwrite($this->handle, $json . ']');
+        fwrite($this->handle, $json.']');
         fflush($this->handle);
     }
 
-    /**
-     * Parses the next record.
-     *
-     * @return void
-     */
-    public function next()
+    public function next(): void
     {
         $this->current = json_decode($this->readNextRecord(), true);
         ++$this->position;
@@ -43,24 +35,22 @@ class Json extends AbstractStorage
 
     /**
      * Returns the next record in raw format.
-     *
-     * @return string Next record in raw format.
      */
-    protected function readNextRecord()
+    protected function readNextRecord(): string
     {
         $depth = 0;
         $isInRecord = false;
         $record = '';
 
         while (false !== ($char = fgetc($this->handle))) {
-            if ($char === '{') {
+            if ('{' === $char) {
                 ++$depth;
             }
-            if ($char === '}') {
+            if ('}' === $char) {
                 --$depth;
             }
 
-            if (!$isInRecord && $char === '{') {
+            if (!$isInRecord && '{' === $char) {
                 $isInRecord = true;
             }
 
@@ -68,38 +58,28 @@ class Json extends AbstractStorage
                 $record .= $char;
             }
 
-            if ($isInRecord && $char === '}' && $depth == 0) {
+            if ($isInRecord && '}' === $char && 0 == $depth) {
                 break;
             }
         }
 
-        if ($char == false) {
+        if (false == $char) {
             $this->isEOF = true;
         }
 
         return $record;
     }
 
-    /**
-     * Resets the storage to the beginning.
-     *
-     * @return void
-     */
-    public function rewind()
+    public function rewind(): void
     {
         rewind($this->handle);
         $this->isEOF = false;
         $this->position = 0;
     }
 
-    /**
-     * Returns true if the current record is valid.
-     *
-     * @return boolean True if the current record is valid.
-     */
-    public function valid()
+    public function valid(): bool
     {
-        if (is_null($this->current)) {
+        if (null === $this->current) {
             $this->next();
         }
 

@@ -1,6 +1,6 @@
 ![PHP-VCR](https://user-images.githubusercontent.com/133832/27151811-0d95c6c4-514c-11e7-834e-eff1eec2ea16.png)
 
-[![Build Status](https://travis-ci.org/php-vcr/php-vcr.svg?branch=master)](https://travis-ci.org/php-vcr/php-vcr)
+[![Continuous Integration](https://github.com/php-vcr/php-vcr/actions/workflows/continuous%20integration.yml/badge.svg?branch=master)](https://github.com/php-vcr/php-vcr/actions/workflows/continuous%20integration.yml)
 [![Code Coverage](https://scrutinizer-ci.com/g/php-vcr/php-vcr/badges/coverage.png?s=15cf1644c8cf37a868e03cfba809a5e24c78f285)](https://scrutinizer-ci.com/g/php-vcr/php-vcr/)
 [![Scrutinizer Quality Score](https://scrutinizer-ci.com/g/php-vcr/php-vcr/badges/quality-score.png?s=4f638dbca5eb51fb9c87a1dd45c5df94687d85bd)](https://scrutinizer-ci.com/g/php-vcr/php-vcr/)
 
@@ -8,13 +8,13 @@ This is a port of the [VCR](http://github.com/vcr/vcr) Ruby library to PHP.
 
 Record your test suite's HTTP interactions and replay them during future test runs for fast, deterministic, accurate tests. A bit of documentation can be found on the [php-vcr website](http://php-vcr.github.io).
 
-Disclaimer: Doing this in PHP is not as easy as in programming languages which support monkey patching (I'm looking at you, Ruby) – this project is not yet fully tested, so please use at your own risk!
+Disclaimer: Doing this in PHP is not as easy as in programming languages which support monkey patching (I'm looking at you, Ruby)
 
 ## Features
 
 * Automatically records and replays your HTTP(s) interactions with minimal setup/configuration code.
 * Supports common http functions and extensions
-  * everyting using [streamWrapper](http://php.net/manual/en/class.streamwrapper.php): fopen(), fread(), file_get_contents(), ... without any modification (except `$http_response_header` see #96)
+  * everything using [streamWrapper](http://php.net/manual/en/class.streamwrapper.php): fopen(), fread(), file_get_contents(), ... without any modification (except `$http_response_header` see [#96](https://github.com/php-vcr/php-vcr/issues/96))
   * [SoapClient](http://www.php.net/manual/en/soapclient.soapclient.php) by adding `\VCR\VCR::turnOn();` in your `tests/bootstrap.php`
   * curl(), by adding `\VCR\VCR::turnOn();` in your `tests/bootstrap.php`
 * The same request can receive different responses in different tests -- just use different cassettes.
@@ -30,7 +30,7 @@ Disclaimer: Doing this in PHP is not as easy as in programming languages which s
 Using static method calls:
 
 ``` php
-class VCRTest extends \PHPUnit_Framework_TestCase
+class VCRTest extends TestCase
 {
     public function testShouldInterceptStreamWrapper()
     {
@@ -68,7 +68,7 @@ class VCRTest extends \PHPUnit_Framework_TestCase
 You can use annotations in PHPUnit by using [phpunit-testlistener-vcr](https://github.com/php-vcr/phpunit-testlistener-vcr):
 
 ``` php
-class VCRTest extends \PHPUnit_Framework_TestCase
+class VCRTest extends TestCase
 {
     /**
      * @vcr unittest_annotation_test
@@ -97,9 +97,9 @@ $ composer require --dev php-vcr/php-vcr
 
 PHP-VCR depends on:
 
-  * PHP 5.3+
+  * PHP 8
   * Curl extension
-  * HTTP library [Guzzle](http://guzzlephp.org)
+  * [symfony/event-dispatcher](https://github.com/symfony/event-dispatcher)
   * [symfony/yaml](https://github.com/symfony/yaml)
   * [beberlei/assert](https://github.com/beberlei/assert)
 
@@ -121,7 +121,7 @@ composer test
 [Old changelog entries](docs/old-changelog.md)
 
 ## Copyright
-Copyright (c) 2013-2016 Adrian Philipp. Released under the terms of the MIT license. See LICENSE for details.
+Copyright (c) 2013-2023 Adrian Philipp. Released under the terms of the MIT license. See LICENSE for details.
 [Contributors](https://github.com/php-vcr/php-vcr/graphs/contributors)
 
 <!--

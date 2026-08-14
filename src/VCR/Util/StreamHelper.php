@@ -1,12 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace VCR\Util;
 
 use VCR\Request;
 
 /**
-* Stream helper class.
-*/
+ * Stream helper class.
+ */
 class StreamHelper
 {
     /**
@@ -15,20 +17,16 @@ class StreamHelper
      * If an existing Request is given, the stream context options
      * are set on the specified Request object.
      *
-     * @param resource $context Stream context resource.
-     * @param string $path Path to use as url.
-     * @param Request $existing Optional, existing request.
-     *
-     * @return Request
+     * @param resource $context stream context resource
      */
-    public static function createRequestFromStreamContext($context, $path, Request $existing = null)
+    public static function createRequestFromStreamContext($context, string $path, ?Request $existing = null): Request
     {
         $http = self::getHttpOptionsFromContext($context);
         $request = $existing;
 
         if (empty($request)) {
             $method = !empty($http['method']) ? $http['method'] : 'GET';
-            $request = new Request($method, $path, array());
+            $request = new Request($method, $path, []);
         }
 
         if (!empty($http['header'])) {
@@ -47,15 +45,15 @@ class StreamHelper
         }
 
         if (isset($http['follow_location'])) {
-            $request->setCurlOption(CURLOPT_FOLLOWLOCATION, (bool) $http['follow_location']);
+            $request->setCurlOption(\CURLOPT_FOLLOWLOCATION, (bool) $http['follow_location']);
         }
 
         if (isset($http['max_redirects'])) {
-            $request->setCurlOption(CURLOPT_MAXREDIRS, $http['max_redirects']);
+            $request->setCurlOption(\CURLOPT_MAXREDIRS, $http['max_redirects']);
         }
 
         if (isset($http['timeout'])) {
-            $request->setCurlOption(CURLOPT_TIMEOUT, $http['timeout']);
+            $request->setCurlOption(\CURLOPT_TIMEOUT, $http['timeout']);
         }
 
         // TODO: protocol_version
@@ -67,16 +65,19 @@ class StreamHelper
      * Returns HTTP options from current stream context.
      *
      * @see http://php.net/manual/en/context.http.php
-     * @return array HTTP options.
+     *
+     * @param resource|null $context
+     *
+     * @return array<string,mixed> HTTP options
      */
-    protected static function getHttpOptionsFromContext($context)
+    protected static function getHttpOptionsFromContext($context): array
     {
         if (!$context) {
-            return array();
+            return [];
         }
 
         $options = stream_context_get_options($context);
 
-        return !empty($options['http']) ? $options['http'] : array();
+        return !empty($options['http']) ? $options['http'] : [];
     }
 }

@@ -5,39 +5,36 @@ namespace VCR\Util;
 use VCR\Request;
 use VCR\Response;
 
-/**
-* cURL helper class.
-*/
 class CurlHelper
 {
     /**
-     * @var array List of cURL info constants.
+     * @var array<int, string> list of cURL info constants
      */
-    public static $curlInfoList = array(
-        //"certinfo"?
-        CURLINFO_HTTP_CODE => 'http_code',
-        CURLINFO_EFFECTIVE_URL => 'url',
-        CURLINFO_FILETIME => 'filetime',
-        CURLINFO_TOTAL_TIME => 'total_time',
-        CURLINFO_NAMELOOKUP_TIME => 'namelookup_time',
-        CURLINFO_CONNECT_TIME => 'connect_time',
-        CURLINFO_PRETRANSFER_TIME => 'pretransfer_time',
-        CURLINFO_STARTTRANSFER_TIME => 'starttransfer_time',
-        CURLINFO_REDIRECT_COUNT => 'redirect_count',
-        CURLINFO_REDIRECT_TIME => 'redirect_time',
-        CURLINFO_SIZE_UPLOAD => 'size_upload',
-        CURLINFO_SIZE_DOWNLOAD => 'size_download',
-        CURLINFO_SPEED_DOWNLOAD => 'speed_download',
-        CURLINFO_SPEED_UPLOAD => 'speed_upload',
-        CURLINFO_HEADER_SIZE => 'header_size',
-        CURLINFO_HEADER_OUT => 'request_header',
-        CURLINFO_FILETIME => 'filetime',
-        CURLINFO_REQUEST_SIZE => 'request_size',
-        CURLINFO_SSL_VERIFYRESULT => 'ssl_verify_result',
-        CURLINFO_CONTENT_LENGTH_DOWNLOAD => 'download_content_length',
-        CURLINFO_CONTENT_LENGTH_UPLOAD => 'upload_content_length',
-        CURLINFO_CONTENT_TYPE => 'content_type'
-    );
+    public static $curlInfoList = [
+        // "certinfo"?
+        \CURLINFO_HTTP_CODE => 'http_code',
+        \CURLINFO_EFFECTIVE_URL => 'url',
+        \CURLINFO_TOTAL_TIME => 'total_time',
+        \CURLINFO_NAMELOOKUP_TIME => 'namelookup_time',
+        \CURLINFO_CONNECT_TIME => 'connect_time',
+        \CURLINFO_PRETRANSFER_TIME => 'pretransfer_time',
+        \CURLINFO_STARTTRANSFER_TIME => 'starttransfer_time',
+        \CURLINFO_REDIRECT_COUNT => 'redirect_count',
+        \CURLINFO_REDIRECT_TIME => 'redirect_time',
+        \CURLINFO_SIZE_UPLOAD => 'size_upload',
+        \CURLINFO_SIZE_DOWNLOAD => 'size_download',
+        \CURLINFO_SPEED_DOWNLOAD => 'speed_download',
+        \CURLINFO_SPEED_UPLOAD => 'speed_upload',
+        \CURLINFO_HEADER_SIZE => 'header_size',
+        \CURLINFO_HEADER_OUT => 'request_header',
+        \CURLINFO_FILETIME => 'filetime',
+        \CURLINFO_REQUEST_SIZE => 'request_size',
+        \CURLINFO_SSL_VERIFYRESULT => 'ssl_verify_result',
+        \CURLINFO_CONTENT_LENGTH_DOWNLOAD => 'download_content_length',
+        \CURLINFO_CONTENT_LENGTH_UPLOAD => 'upload_content_length',
+        \CURLINFO_CONTENT_TYPE => 'content_type',
+        \CURLINFO_APPCONNECT_TIME => 'appconnect_time',
+    ];
 
     /**
      * Outputs a response depending on the set cURL option.
@@ -47,80 +44,83 @@ class CurlHelper
      *
      * The response header might be passed to a custom function.
      *
-     * @param  Response $response    Response which contains the response body.
-     * @param  array    $curlOptions cURL options which are not stored within the Response.
-     * @param  resource $ch          cURL handle to add headers if needed.
-     *
-     * @return null|string
+     * @param array<int, mixed> $curlOptions cURL options which are not stored within the Response
      */
-    public static function handleOutput(Response $response, array $curlOptions, $ch)
+    public static function handleOutput(Response $response, array $curlOptions, \CurlHandle $ch): ?string
     {
         // If there is a header function set, feed the http status and headers to it.
-        if (isset($curlOptions[CURLOPT_HEADERFUNCTION])) {
-            $headerList = array(HttpUtil::formatAsStatusString($response));
+        if (isset($curlOptions[\CURLOPT_HEADERFUNCTION])) {
+            $headerList = [HttpUtil::formatAsStatusString($response)];
             $headerList = array_merge($headerList, HttpUtil::formatHeadersForCurl($response->getHeaders()));
             $headerList[] = "\r\n";
             foreach ($headerList as $header) {
-                call_user_func($curlOptions[CURLOPT_HEADERFUNCTION], $ch, $header);
+                self::callFunction($curlOptions[\CURLOPT_HEADERFUNCTION], $ch, $header);
             }
         }
 
         $body = $response->getBody();
 
-        if (!empty($curlOptions[CURLOPT_HEADER])) {
-            $body = HttpUtil::formatAsStatusWithHeadersString($response) . $body;
+        if (!empty($curlOptions[\CURLOPT_HEADER])) {
+            $body = HttpUtil::formatAsStatusWithHeadersString($response).$body;
         }
 
-        if (isset($curlOptions[CURLOPT_WRITEFUNCTION])) {
-            call_user_func($curlOptions[CURLOPT_WRITEFUNCTION], $ch, $body);
-        } elseif (isset($curlOptions[CURLOPT_RETURNTRANSFER]) && $curlOptions[CURLOPT_RETURNTRANSFER] == true) {
+        if (isset($curlOptions[\CURLOPT_WRITEFUNCTION])) {
+            self::callFunction($curlOptions[\CURLOPT_WRITEFUNCTION], $ch, $body);
+        } elseif (isset($curlOptions[\CURLOPT_RETURNTRANSFER]) && true == $curlOptions[\CURLOPT_RETURNTRANSFER]) {
             return $body;
-        } elseif (isset($curlOptions[CURLOPT_FILE])) {
-            $fp = $curlOptions[CURLOPT_FILE];
+        } elseif (isset($curlOptions[\CURLOPT_FILE])) {
+            $fp = $curlOptions[\CURLOPT_FILE];
             fwrite($fp, $body);
             fflush($fp);
         } else {
             echo $body;
         }
+
+        return null;
     }
 
     /**
-     * Returns a cURL option from a Response.
+     * @param int $option cURL option to get
      *
-     * @param  Response $response Response to get cURL option from.
-     * @param  integer $option cURL option to get.
+     * @return mixed value of the cURL option
      *
      * @throws \BadMethodCallException
-     * @return mixed Value of the cURL option.
      */
-    public static function getCurlOptionFromResponse(Response $response, $option = 0)
+    public static function getCurlOptionFromResponse(Response $response, ?string $url, int $option = 0)
     {
         switch ($option) {
             case 0: // 0 == array of all curl options
-                $info = array();
+                $info = [];
                 foreach (self::$curlInfoList as $option => $key) {
                     $info[$key] = $response->getCurlInfo($key);
                 }
                 break;
-            case CURLINFO_HTTP_CODE:
-                $info = (int)$response->getStatusCode();
+            case \CURLINFO_HTTP_CODE:
+                $info = (int) $response->getStatusCode();
                 break;
-            case CURLINFO_SIZE_DOWNLOAD:
+            case \CURLINFO_SIZE_DOWNLOAD:
                 $info = $response->getHeader('Content-Length');
                 break;
-            case CURLINFO_HEADER_SIZE:
-                $info =  mb_strlen(HttpUtil::formatAsStatusWithHeadersString($response), 'ISO-8859-1');
+            case \CURLINFO_HEADER_SIZE:
+                $info = mb_strlen(HttpUtil::formatAsStatusWithHeadersString($response), 'ISO-8859-1');
+                break;
+            case \CURLPROXY_HTTPS:
+            case \CURLINFO_APPCONNECT_TIME:
+                $info = '';
+                break;
+            case \CURLINFO_EFFECTIVE_URL:
+                $info = $url;
                 break;
             case CURLINFO_CERTINFO:
                 $curlInfo = $response->getCurlInfo($option);
                 $info = (!is_null($curlInfo)) ? $curlInfo : [];
                 break;
             default:
-                $info = $response->getCurlInfo($option);
+                $info = $response->getCurlInfo(self::$curlInfoList[$option]);
                 break;
         }
 
-        if (!is_null($info)) {
+        if (null !== $info) {
             return $info;
         }
 
@@ -130,35 +130,30 @@ class CurlHelper
     }
 
     /**
-     * Sets a cURL option on a Request.
-     *
-     * @param Request  $request Request to set cURL option to.
-     * @param integer  $option  cURL option to set.
-     * @param mixed    $value   Value of the cURL option.
-     * @param resource $curlHandle cURL handle where this option is set on (optional).
+     * @param mixed $value value of the cURL option
      */
-    public static function setCurlOptionOnRequest(Request $request, $option, $value, $curlHandle = null)
+    public static function setCurlOptionOnRequest(Request $request, int $option, $value): void
     {
         switch ($option) {
-            case CURLOPT_URL:
+            case \CURLOPT_URL:
                 $request->setUrl($value);
                 break;
-            case CURLOPT_CUSTOMREQUEST:
-                $request->setCurlOption(CURLOPT_CUSTOMREQUEST, $value);
+            case \CURLOPT_CUSTOMREQUEST:
+                $request->setCurlOption(\CURLOPT_CUSTOMREQUEST, $value);
                 break;
-            case CURLOPT_POST:
-                if ($value == true) {
+            case \CURLOPT_POST:
+                if (true == $value) {
                     $request->setMethod('POST');
                 }
                 break;
-            case CURLOPT_POSTFIELDS:
+            case \CURLOPT_POSTFIELDS:
                 // todo: check for file @
-                if (is_array($value)) {
+                if (\is_array($value)) {
                     foreach ($value as $name => $fieldValue) {
                         $request->setPostField($name, $fieldValue);
                     }
 
-                    if (count($value) == 0) {
+                    if (0 == \count($value)) {
                         $request->removeHeader('Content-Type');
                     }
                 } elseif (!empty($value)) {
@@ -168,21 +163,21 @@ class CurlHelper
                 }
                 $request->setMethod('POST');
                 break;
-            case CURLOPT_HTTPHEADER:
+            case \CURLOPT_HTTPHEADER:
                 foreach ($value as $header) {
                     $headerParts = explode(': ', $header, 2);
                     if (!isset($headerParts[1])) {
                         $headerParts[0] = rtrim($headerParts[0], ':');
-                        $headerParts[1] = null;
+                        $headerParts[1] = '';
                     }
                     $request->setHeader($headerParts[0], $headerParts[1]);
                 }
                 break;
-            case CURLOPT_FILE:
-            case CURLOPT_HEADER:
-            case CURLOPT_WRITEFUNCTION:
-            case CURLOPT_HEADERFUNCTION:
-            case CURLOPT_UPLOAD:
+            case \CURLOPT_FILE:
+            case \CURLOPT_HEADER:
+            case \CURLOPT_WRITEFUNCTION:
+            case \CURLOPT_HEADERFUNCTION:
+            case \CURLOPT_UPLOAD:
                 // Ignore header, file and writer functions.
                 // These options are stored and will be handled later in handleOutput().
                 break;
@@ -195,14 +190,11 @@ class CurlHelper
     /**
      * Makes sure we've properly handled the POST body, such as ensuring that
      * CURLOPT_INFILESIZE is set if CURLOPT_READFUNCTION is set.
-     *
-     * @param Request  $request Request to set cURL option to.
-     * @param resource $curlHandle cURL handle associated with the request.
      */
-    public static function validateCurlPOSTBody(Request $request, $curlHandle = null)
+    public static function validateCurlPOSTBody(Request $request, ?\CurlHandle $curlHandle = null): void
     {
-        $readFunction = $request->getCurlOption(CURLOPT_READFUNCTION);
-        if (is_null($readFunction)) {
+        $readFunction = $request->getCurlOption(\CURLOPT_READFUNCTION);
+        if (null === $readFunction) {
             return;
         }
 
@@ -212,9 +204,32 @@ class CurlHelper
             return;
         }
 
-        $bodySize = $request->getCurlOption(CURLOPT_INFILESIZE);
+        $bodySize = $request->getCurlOption(\CURLOPT_INFILESIZE);
         Assertion::notEmpty($bodySize, 'To set a CURLOPT_READFUNCTION, CURLOPT_INFILESIZE must be set.');
-        $body = call_user_func_array($readFunction, array($curlHandle, fopen('php://memory', 'r'), $bodySize));
+        $body = \call_user_func_array($readFunction, [$curlHandle, fopen('php://memory', 'r'), $bodySize]);
         $request->setBody($body);
+    }
+
+    /**
+     * A wrapper around call_user_func that attempts to properly handle private
+     * and protected methods on objects.
+     *
+     * @param mixed $callback The callable to pass to call_user_func
+     * @param mixed $argument The third argument to pass to call_user_func
+     *
+     * @return mixed value returned by the callback function
+     */
+    private static function callFunction($callback, \CurlHandle $curlHandle, $argument)
+    {
+        if (!\is_callable($callback) && \is_array($callback) && 2 === \count($callback)) {
+            // This is probably a private or protected method on an object. Try and
+            // make it accessible.
+            $method = new \ReflectionMethod($callback[0], $callback[1]);
+            $method->setAccessible(true);
+
+            return $method->invoke($callback[0], $curlHandle, $argument);
+        } else {
+            return \call_user_func($callback, $curlHandle, $argument);
+        }
     }
 }

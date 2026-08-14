@@ -9,36 +9,28 @@ use VCR\Util\Assertion;
  */
 class Response
 {
-    /**
-     * @var array
-     */
-    protected $status = array(
-        'code' => null,
-        'message' => ''
-    );
+    protected int $statusCode;
+
+    protected string $statusMessage = '';
 
     /**
-     * @var array
+     * @var array<string,string>
      */
-    protected $headers = array();
+    protected array $headers = [];
+    protected ?string $body;
     /**
-     * @var string
+     * @var array<string,mixed>
      */
-    protected $body;
-    /**
-     * @var array
-     */
-    protected $curlInfo = array();
+    protected array $curlInfo = [];
 
-    protected $httpVersion;
+    protected mixed $httpVersion = null;
 
     /**
-     * @param string|array $status
-     * @param array $headers
-     * @param string $body
-     * @param array $curlInfo
+     * @param string|array<string, string> $status
+     * @param array<string,string>         $headers
+     * @param array<string,mixed>          $curlInfo
      */
-    public function __construct($status, array $headers = array(), $body = null, array $curlInfo = array())
+    final public function __construct($status, array $headers = [], ?string $body = null, array $curlInfo = [])
     {
         $this->setStatus($status);
         $this->headers = $headers;
@@ -49,42 +41,51 @@ class Response
     /**
      * Returns an array representation of this Response.
      *
-     * @return array Array representation of this Request.
+     * @return array<string,mixed> array representation of this Request
      */
-    public function toArray()
+    public function toArray(): array
     {
         $body = $this->getBody();
         // Base64 encode when binary
-        if (strpos($this->getContentType(), 'application/x-gzip') !== false
-            || $this->getHeader('Content-Transfer-Encoding') == 'binary'
+        if (
+            null !== $this->getContentType()
+            && (
+                str_contains($this->getContentType(), 'application/x-gzip')
+                || 'binary' == $this->getHeader('Content-Transfer-Encoding')
+            )
         ) {
             $body = base64_encode($body);
         }
 
         return array_filter(
-            array(
-                'status'    => $this->status,
-                'headers'   => $this->getHeaders(),
-                'body'      => $body
-            )
+            [
+                'status' => [
+                    'code' => $this->statusCode,
+                    'message' => $this->statusMessage,
+                ],
+                'headers' => $this->getHeaders(),
+                'body' => $body,
+                'curl_info' => $this->curlInfo,
+            ]
         );
     }
 
     /**
      * Creates a new Response from a specified array.
      *
-     * @param  array  $response Array representation of a Response.
+     * @param array<string,mixed> $response array representation of a Response
+     *
      * @return Response A new Response from a specified array
      */
-    public static function fromArray(array $response)
+    public static function fromArray(array $response): self
     {
-        $body = isset($response['body']) ? $response['body'] : null;
+        $body = $response['body'] ?? null;
 
         $gzip = isset($response['headers']['Content-Type'])
-            && strpos($response['headers']['Content-Type'], 'application/x-gzip') !== false;
+            && str_contains($response['headers']['Content-Type'], 'application/x-gzip');
 
         $binary = isset($response['headers']['Content-Transfer-Encoding'])
-            && $response['headers']['Content-Transfer-Encoding'] == 'binary';
+            && 'binary' == $response['headers']['Content-Transfer-Encoding'];
 
         // Base64 decode when binary
         if ($gzip || $binary) {
@@ -92,29 +93,26 @@ class Response
         }
 
         return new static(
-            isset($response['status']) ? $response['status'] : 200,
-            isset($response['headers']) ? $response['headers'] : array(),
-            $body
+            $response['status'] ?? 200,
+            $response['headers'] ?? [],
+            $body,
+            $response['curl_info'] ?? []
         );
     }
 
-    /**
-     * @return string
-     */
-    public function getBody()
+    public function getBody(): string
     {
-        return $this->body;
+        return $this->body ?: '';
     }
 
     /**
-     * @return array
+     * @return array<string,mixed>|mixed|null
      */
-    public function getCurlInfo($option = null)
+    public function getCurlInfo(?string $option = null): mixed
     {
         if (empty($option)) {
             return $this->curlInfo;
         }
-
         if (!isset($this->curlInfo[$option])) {
             return null;
         }
@@ -123,27 +121,24 @@ class Response
     }
 
     /**
-     * @return array
+     * @return array<string,string>
      */
-    public function getHeaders()
+    public function getHeaders(): array
     {
         return $this->headers;
     }
 
-    /**
-     * @return string
-     */
-    public function getStatusCode()
+    public function getStatusCode(): int
     {
-        return $this->status['code'];
+        return $this->statusCode;
     }
 
-    public function getContentType()
+    public function getContentType(): ?string
     {
         return $this->getHeader('Content-Type');
     }
 
-    public function getHeader($key)
+    public function getHeader(string $key): ?string
     {
         if (!isset($this->headers[$key])) {
             return null;
@@ -152,35 +147,30 @@ class Response
         return $this->headers[$key];
     }
 
-    /**
-     * @return mixed
-     */
-    public function getHttpVersion()
+    public function getHttpVersion(): mixed
     {
         return $this->httpVersion;
     }
 
-    /**
-     * @return string
-     */
-    public function getStatusMessage()
+    public function getStatusMessage(): string
     {
-        return $this->status['message'];
+        return $this->statusMessage;
     }
 
     /**
-     * @param string|array $status
+     * @param string|array<string,mixed> $status
      */
-    protected function setStatus($status)
+    protected function setStatus($status): void
     {
-        if (is_array($status)) {
-            $this->status = $status;
+        if (\is_array($status)) {
+            $this->statusCode = (int) $status['code'];
+            $this->statusMessage = $status['message'];
             if (!empty($status['http_version'])) {
                 $this->httpVersion = $status['http_version'];
             }
         } else {
             Assertion::numeric($status, 'Response status must be either an array or a number.');
-            $this->status['code'] = $status;
+            $this->statusCode = (int) $status;
         }
     }
 }

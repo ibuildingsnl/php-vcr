@@ -1,9 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace VCR;
 
 use VCR\Storage\Storage;
-use VCR\Util\Assertion;
 
 /**
  * A Cassette records and plays back pairs of Requests and Responses in a Storage.
@@ -11,66 +12,30 @@ use VCR\Util\Assertion;
 class Cassette
 {
     /**
-     * Casette name
-     * @var string
+     * @param Storage<array> $storage
      */
-    protected $name;
-
-    /**
-     * VCR configuration.
-     *
-     * @var Configuration
-     */
-    protected $config;
-
-    /**
-     * Storage used to store records and request pairs.
-     *
-     * @var Storage
-     */
-    protected $storage;
-
-    /**
-     * Creates a new cassette.
-     *
-     * @param  string           $name    Name of the cassette.
-     * @param  Configuration    $config  Configuration to use for this cassette.
-     * @param  Storage          $storage Storage to use for requests and responses.
-     * @throws \VCR\VCRException If cassette name is in an invalid format.
-     */
-    public function __construct($name, Configuration $config, Storage $storage)
-    {
-        Assertion::string($name, 'Cassette name must be a string, ' . \gettype($name) . ' given.');
-
-        $this->name = $name;
-        $this->config = $config;
-        $this->storage = $storage;
+    public function __construct(
+        protected string $name,
+        protected Configuration $config,
+        protected Storage $storage
+    ) {
     }
 
-    /**
-     * Returns true if a response was recorded for specified request.
-     *
-     * @param Request $request Request to check if it was recorded.
-     *
-     * @return boolean True if a response was recorded for specified request.
-     */
-    public function hasResponse(Request $request)
+    public function hasResponse(Request $request, int $index = 0): bool
     {
-        return $this->playback($request) !== null;
+        return null !== $this->playback($request, $index);
     }
 
-    /**
-     * Returns a response for given request or null if not found.
-     *
-     * @param Request $request Request.
-     *
-     * @return Response|null Response for specified request.
-     */
-    public function playback(Request $request)
+    public function playback(Request $request, int $index = 0): ?Response
     {
         foreach ($this->storage as $recording) {
             $storedRequest = Request::fromArray($recording['request']);
-            if ($storedRequest->matches($request, $this->getRequestMatchers())) {
+
+            // Support legacy cassettes which do not have the 'index' key by setting the index to the searched one to
+            // always match this record if the request matches
+            $recording['index'] ??= $index;
+
+            if ($storedRequest->matches($request, $this->getRequestMatchers()) && $index == $recording['index']) {
                 return Response::fromArray($recording['response']);
             }
         }
@@ -78,54 +43,33 @@ class Cassette
         return null;
     }
 
-    /**
-     * Records a request and response pair.
-     *
-     * @param Request  $request  Request to record.
-     * @param Response $response Response to record.
-     *
-     * @return void
-     */
-    public function record(Request $request, Response $response)
+    public function record(Request $request, Response $response, int $index = 0): void
     {
-        if ($this->hasResponse($request)) {
+        if ($this->hasResponse($request, $index)) {
             return;
         }
 
-        $recording = array(
-            'request'  => $request->toArray(),
-            'response' => $response->toArray()
-        );
-
-        $this->storage->storeRecording($recording);
+        $this->storage->storeRecording([
+            'request' => $request->toArray(),
+            'response' => $response->toArray(),
+            'index' => $index,
+        ]);
     }
 
-    /**
-     * Returns the name of the current cassette.
-     *
-     * @return string Current cassette name.
-     */
-    public function getName()
+    public function getName(): string
     {
         return $this->name;
     }
 
-    /**
-     * Returns true if the cassette was created recently.
-     *
-     * @return boolean
-     */
-    public function isNew()
+    public function isNew(): bool
     {
         return $this->storage->isNew();
     }
 
     /**
-     * Returns a list of callbacks to configured request matchers.
-     *
-     * @return array List of callbacks to configured request matchers.
+     * @return callable[]
      */
-    protected function getRequestMatchers()
+    protected function getRequestMatchers(): array
     {
         return $this->config->getRequestMatchers();
     }

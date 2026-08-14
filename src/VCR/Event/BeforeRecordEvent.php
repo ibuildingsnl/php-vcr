@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace VCR\Event;
 
 use VCR\Cassette;
@@ -8,53 +10,24 @@ use VCR\Response;
 
 class BeforeRecordEvent extends Event
 {
-    /**
-     * @var Request
-     */
-    protected $request;
-
-    /**
-     * @var Response
-     */
-    protected $response;
-
-    /**
-     * @var Cassette
-     */
-    protected $cassette;
-
-    /**
-     * @param Request $request
-     * @param Response $response
-     * @param Cassette $cassette
-     */
-    public function __construct(Request $request, Response $response, Cassette $cassette)
-    {
-        $this->request = $request;
-        $this->response = $response;
-        $this->cassette = $cassette;
+    public function __construct(
+        protected Request $request,
+        protected Response $response,
+        protected Cassette $cassette
+    ) {
     }
 
-    /**
-     * @return Request
-     */
-    public function getRequest()
+    public function getRequest(): Request
     {
         return $this->request;
     }
 
-    /**
-     * @return Response
-     */
-    public function getResponse()
+    public function getResponse(): Response
     {
         return $this->response;
     }
 
-    /**
-     * @return Cassette
-     */
-    public function getCassette()
+    public function getCassette(): Cassette
     {
         return $this->cassette;
     }

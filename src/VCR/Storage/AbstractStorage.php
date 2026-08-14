@@ -1,9 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace VCR\Storage;
 
 use VCR\Util\Assertion;
-use VCR\VCRException;
 
 /**
  * Abstract base for reading and storing records.
@@ -14,58 +15,37 @@ use VCR\VCRException;
 abstract class AbstractStorage implements Storage
 {
     /**
-     * @var resource File handle.
+     * @var resource
      */
     protected $handle;
 
-    /**
-     * @var string Path to storage file.
-     */
-    protected $filePath;
+    protected string $filePath;
 
     /**
-     * @var array Current parsed record.
+     * @var array<string,mixed>|null current parsed record
      */
-    protected $current;
+    protected ?array $current = null;
+
+    protected int $position = 0;
+
+    protected bool $isEOF = false;
+
+    protected bool $isNew = false;
+
+    protected bool $isValidPosition = true;
 
     /**
-     * @var integer Number of the current recording.
-     */
-    protected $position = 0;
-
-    /**
-     * @var boolean True when parser is at the end of the file.
-     */
-    protected $isEOF = false;
-
-    /**
-     * @var boolean If the cassette file is new.
-     */
-    protected $isNew = false;
-
-    /**
-     * @var boolean If the current position is valid.
-     */
-    protected $isValidPosition = true;
-
-    /**
-     * Creates a new file store.
-     *
      * If the cassetteName contains PATH_SEPARATORs, subfolders of the
      * cassettePath are autocreated when not existing.
-     *
-     * @param string  $cassettePath   Path to the cassette directory.
-     * @param string  $cassetteName   Path to the cassette file, relative to the path.
-     * @param string  $defaultContent Default data for this cassette if its not existing
      */
-    public function __construct($cassettePath, $cassetteName, $defaultContent = '[]')
+    public function __construct(string $cassettePath, string $cassetteName, string $defaultContent = '[]')
     {
         Assertion::directory($cassettePath, "Cassette path '{$cassettePath}' is not existing or not a directory");
 
-        $this->filePath = rtrim($cassettePath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $cassetteName;
+        $this->filePath = rtrim($cassettePath, \DIRECTORY_SEPARATOR).\DIRECTORY_SEPARATOR.$cassetteName;
 
-        if (!is_dir(dirname($this->filePath))) {
-            mkdir(dirname($this->filePath), 0777, true);
+        if (!is_dir(\dirname($this->filePath))) {
+            mkdir(\dirname($this->filePath), 0777, true);
         }
 
         if (!file_exists($this->filePath) || 0 === filesize($this->filePath)) {
@@ -76,45 +56,36 @@ abstract class AbstractStorage implements Storage
         Assertion::file($this->filePath, "Specified path '{$this->filePath}' is not a file.");
         Assertion::readable($this->filePath, "Specified file '{$this->filePath}' must be readable.");
 
-        $this->handle = fopen($this->filePath, 'r+');
+        $handle = fopen($this->filePath, 'r+');
+
+        Assertion::isResource($handle);
+
+        $this->handle = $handle;
     }
 
     /**
      * Returns the current record.
      *
-     * @return array Parsed current record.
+     * @return array<string,mixed>|null parsed current record
      */
-    public function current()
+    public function current(): ?array
     {
         return $this->current;
     }
 
-    /**
-     * Returns the current key.
-     *
-     * @return integer
-     */
-    public function key()
+    public function key(): int
     {
         return $this->position;
     }
 
-    /**
-     * Returns true if the file did not exist and had to be created.
-     *
-     * @return boolean TRUE if created, FALSE if not
-     */
-    public function isNew()
+    public function isNew(): bool
     {
         return $this->isNew;
     }
 
-    /**
-     * Closes file handle.
-     */
     public function __destruct()
     {
-        if (is_resource($this->handle)) {
+        if (\is_resource($this->handle)) {
             fclose($this->handle);
         }
     }

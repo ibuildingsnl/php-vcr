@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace VCR\Util;
 
 use Assert\Assertion as BaseAssertion;
@@ -9,22 +11,23 @@ class Assertion extends BaseAssertion
 {
     protected static $exceptionClass = 'VCR\VCRException';
 
-    const INVALID_CALLABLE = 910;
+    public const INVALID_CALLABLE = 910;
 
     /**
      * Assert that the value is callable.
      *
-     * @param  mixed  $value Variable to check for a callable.
-     * @param  string $message Exception message to show if value is not a callable.
-     * @param  null   $propertyPath
-     * @throws \VCR\VCRException If specified value is not a callable.
+     * @param mixed  $value        variable to check for a callable
+     * @param string $message      exception message to show if value is not a callable
+     * @param null   $propertyPath
      *
-     * @return void
+     * @throws VCRException if specified value is not a callable
      */
-    public static function isCallable($value, $message = null, $propertyPath = null)
+    public static function isCallable($value, $message = null, ?string $propertyPath = null): bool
     {
-        if (! is_callable($value)) {
+        if (!\is_callable($value)) {
             throw new VCRException($message, self::INVALID_CALLABLE, $propertyPath);
         }
+
+        return true;
     }
 }

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace VCR\Util;
 
 use VCR\LibraryHooks\SoapHook;
@@ -10,24 +12,21 @@ use VCR\VCRFactory;
  */
 class SoapClient extends \SoapClient
 {
-    /**
-     * @var \VCR\LibraryHooks\SoapHook SOAP library hook used to intercept SOAP requests.
-     */
-    protected $soapHook;
-
-    protected $options = array();
+    protected SoapHook $soapHook;
 
     /**
-     * @var string
+     * @var array<string,mixed>
      */
-    protected $response;
+    protected array $options = [];
+
+    protected string $response;
+
+    protected string $request;
 
     /**
-     * @var string
+     * @param array<string,mixed> $options
      */
-    protected $request;
-
-    public function __construct($wsdl, $options = array())
+    public function __construct(?string $wsdl, array $options = [])
     {
         $this->options = $options;
         parent::__construct($wsdl, $options);
@@ -37,86 +36,52 @@ class SoapClient extends \SoapClient
      * Performs (and may intercepts) SOAP request over HTTP.
      *
      * Requests will be intercepted if the library hook is enabled.
-     *
-     * @param  string  $request  The XML SOAP request.
-     * @param  string  $location The URL to request.
-     * @param  string  $action   The SOAP action.
-     * @param  integer $version  The SOAP version.
-     * @param  integer $one_way  If one_way is set to 1, this method returns nothing.
-     *                           Use this where a response is not expected.
-     * @return string  The XML SOAP response.
      */
-    public function __doRequest($request, $location, $action, $version, $one_way = 0)
+    public function __doRequest(string $request, string $location, string $action, int $version, bool $oneWay = false, ?string $uriParserClass = null): ?string
     {
-        // Save a copy of the request, not the request itself -- see issue #153
-        $this->request = (string) $request;
+        $this->request = $request;
 
         $soapHook = $this->getLibraryHook();
 
         if ($soapHook->isEnabled()) {
-            $response = $soapHook->doRequest($request, $location, $action, $version, $one_way, $this->options);
+            $this->response = $soapHook->doRequest($request, $location, $action, $version, $oneWay, $this->options);
         } else {
-            $response = $this->realDoRequest($request, $location, $action, $version, $one_way);
+            $this->response = $this->realDoRequest($request, $location, $action, $version, $oneWay, $uriParserClass);
         }
 
-        $this->response = $response;
-
-        return $one_way ? null : $response;
+        return $oneWay ? null : $this->response;
     }
 
-    /**
-     * @inheritdoc
-     */
-    public function __getLastRequest()
+    public function __getLastRequest(): ?string
     {
-        return $this->request;
+        return $this->request ?? null;
     }
 
-    /**
-     * @inheritdoc
-     */
-    public function __getLastResponse()
+    public function __getLastResponse(): ?string
     {
-        return $this->response;
+        return $this->response ?? null;
     }
 
-    /**
-     * Sets the SOAP library hook which is used to intercept SOAP requests.
-     *
-     * @param SoapHook $hook SOAP library hook to use when intercepting SOAP requests.
-     */
-    public function setLibraryHook(SoapHook $hook)
+    public function setLibraryHook(SoapHook $hook): void
     {
         $this->soapHook = $hook;
     }
 
-    /**
-     * Performs a real SOAP request over HTTP.
-     *
-     * @codeCoverageIgnore
-     * @param  string  $request  The XML SOAP request.
-     * @param  string  $location The URL to request.
-     * @param  string  $action   The SOAP action.
-     * @param  integer $version  The SOAP version.
-     * @param  integer $one_way  If one_way is set to 1, this method returns nothing.
-     *                           Use this where a response is not expected.
-     * @return string  The XML SOAP response.
-     */
-    protected function realDoRequest($request, $location, $action, $version, $one_way = 0)
+    protected function realDoRequest(string $request, string $location, string $action, int $version, bool $oneWay = false, ?string $uriParserClass = null): string
     {
-        return parent::__doRequest($request, $location, $action, $version, $one_way);
+        // PHP 8.5 added the $uriParserClass parameter to SoapClient::__doRequest().
+        // Only forward it when it is actually set, so this keeps working on PHP < 8.5
+        // where the parent method does not accept a sixth argument.
+        if (null !== $uriParserClass) {
+            return parent::__doRequest($request, $location, $action, $version, $oneWay, $uriParserClass);
+        }
+
+        return parent::__doRequest($request, $location, $action, $version, $oneWay);
     }
 
-    /**
-     * Returns currently used SOAP library hook.
-     *
-     * If no library hook is set, a new one is created.
-     *
-     * @return SoapHook SOAP library hook.
-     */
-    protected function getLibraryHook()
+    protected function getLibraryHook(): SoapHook
     {
-        if (empty($this->soapHook)) {
+        if (!isset($this->soapHook)) {
             $this->soapHook = VCRFactory::get('VCR\LibraryHooks\SoapHook');
         }
 
